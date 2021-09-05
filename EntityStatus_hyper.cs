@@ -15,9 +15,6 @@ namespace HyperNova.Entity {
         [SerializeField] protected GameObject eDestroyEffect;
         [Header("--- Drop Item ---")]
         [SerializeField] protected GameObject dropItem;
-        //[Header("--- SE ---")]
-        //[SerializeField, Min(0)] protected int eHitSE_ID = 4;
-        //[SerializeField, Min(0)] protected int eDestroySE_ID = 3;
 
         protected override void OnValidate() {
             base.OnValidate();
