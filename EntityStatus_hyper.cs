@@ -4,6 +4,7 @@ using UnityEngine;
 using EntityBehavior.Status;
 using HyperNova.Game;
 
+//EntityStatus for HyperNova
 namespace HyperNova.Entity {
     [AddComponentMenu("HyperNova/Entity/Entity_Status")]
     public class EntityStatus_hyper : EntityStatus {
