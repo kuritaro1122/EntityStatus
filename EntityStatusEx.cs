@@ -1,13 +1,14 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace EntityBehavior.Status {
     [AddComponentMenu("EntityBehaviour/EntityStatusEx")]
     public class EntityStatusEx : EntityStatus {
-        private enum DamageType { none, oneSide, both };
+        private enum StayDamageType { none, oneSide, both };
         [Header("--- [Ex] Attack On Stay ---")]
-        [SerializeField] DamageType attackOnStay = DamageType.none;
+        [SerializeField] StayDamageType attackOnStay = StayDamageType.none;
+        [SerializeField] bool causeDamageIgnoreTakeDamageOnStay = false;
         [SerializeField, Min(0f)] float powerOnStay = 1f;
         [SerializeField, Min(0.1f)] float span = 1f;
         private float count = 0f;
@@ -21,10 +22,8 @@ namespace EntityBehavior.Status {
         public float InvincibleRemainTime { get { return Mathf.Max(this.remainTime, 0f); } }
         public float InvincibleRemainTimeRate { get { return (this.InvincibleTime > 0f) ? (this.InvincibleRemainTime / this.InvincibleTime) : 0f; } }
 
-        // Update is called once per frame
         protected virtual void Update() {
-            if (attackOnStay != DamageType.none) UpdateAttackCount();
-            //if (invincbleTime) UpdateInvincbleTime();
+            if (attackOnStay != StayDamageType.none) UpdateAttackCount();
             if (Invincible) this.remainTime -= Time.deltaTime;
         }
         protected virtual void OnTriggerStay(Collider other) {
@@ -34,13 +33,16 @@ namespace EntityBehavior.Status {
             CollisionOtherStay(collision.collider);
         }
 
-        public override void Damage(float value = 1) {
+        public override void Damage(float value = 1, int key = -1) {
             if (!this.Invincible) {
-                base.Damage(value);
+                base.Damage(value, key);
                 InvincibleStart();
             }
         }
 
+        private void InvincibleStart() {
+            if (this.invincibleTime) this.remainTime = this.InvincibleTime;
+        }
         private void UpdateAttackCount() {
             if (this.count < this.span) {
                 this.count += Time.deltaTime;
@@ -53,9 +55,7 @@ namespace EntityBehavior.Status {
             GameObject obj = other.gameObject;
             if (obj == null) return;
             foreach (var status in attackedEntity) {
-                if (status != null && obj == status.gameObject)
-                //if (ReferenceEquals(obj, status?.gameObject))
-                    return;
+                if (status != null && obj == status.gameObject) return;
             }
             EntityStatus otherStatus = base.GetEffectionEntity(obj);
             if (otherStatus != null) EntityCollision(otherStatus);
@@ -63,21 +63,16 @@ namespace EntityBehavior.Status {
         private void EntityCollision(EntityStatus otherStatus) {
             switch (attackOnStay) {
                 default:
-                case DamageType.none:
+                case StayDamageType.none:
                     break;
-                case DamageType.both:
+                case StayDamageType.both:
                     this.Damage(otherStatus.Power);
-                    goto case DamageType.oneSide;
-                case DamageType.oneSide:
-                    otherStatus.Damage(this.powerOnStay);
+                    goto case StayDamageType.oneSide;
+                case StayDamageType.oneSide:
+                    otherStatus.Damage(this.powerOnStay, this.key);
                     break;
             }
             this.attackedEntity.Add(otherStatus);
-        }
-
-        protected void InvincibleStart() {
-            if (this.invincibleTime) this.remainTime = this.InvincibleTime;
-            //else Debug.LogWarning("EntityStatusEx/Invincible time is invalid");
         }
     }
 }
