@@ -82,7 +82,6 @@ namespace EntityBehavior.Status {
             int id = this.gameObject.GetInstanceID();
             int otherId = otherStatus.gameObject.GetInstanceID();
             if (id < otherId) {
-                //Debug.Log($"entitystatus/collision/{this.gameObject.name} {otherStatus.gameObject.name} frame:{Time.frameCount}");
                 float otherPower = otherStatus.Power;
                 if (this.Power >= 0f) otherStatus.Damage(this.Power, this.key);
                 if (otherPower >= 0f) this.Damage(otherPower, otherStatus.key);
