@@ -30,7 +30,7 @@ demo/EntityStatus_hyper.csは[HyperNova](https://kuritaro1122.github.io/HyperNov
 
 ## Inspector
 
-![image](inspectorView.png)
+![image](img/inspectorView_entityStatus.png)
 
 ## Public Variable
 ```
