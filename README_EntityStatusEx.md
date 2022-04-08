@@ -1,4 +1,4 @@
-EntityStatus[/README.md/]
+[EntityStatus](/README.md/)
 # EntityStatusEx
 
 GameObjectにHPと攻撃力を付与し、それらのステータスを管理する。
