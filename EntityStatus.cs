@@ -1,5 +1,3 @@
-//using System.Collections;
-//using System.Collections.Generic;
 using UnityEngine;
 using System;
 
@@ -8,38 +6,36 @@ namespace EntityBehavior.Status {
     public /*abstract*/ class EntityStatus : MonoBehaviour {
         public enum EntityType { enemy, friend, obstacle }
         public enum DefeatType { destroy, nonActive, none }
-        public static readonly string commonTag = "Entity";
-
+        public const string commonTag = "Entity";
+        [SerializeField] public bool statusActive = true;
         [Header("--- Entity Status ---")]
         [SerializeField] protected EntityType entityType;
         [SerializeField] protected bool isShot = false; //shot同士は属性に関わらず衝突しない。
-        [SerializeField] protected bool takeNoDamage = false; //Defeat()でのみ破壊可能になる。
+        public enum DamageType { normal, takeNoDamage, keyOnly }
+        [SerializeField] public DamageType damageType = DamageType.normal;
+        [SerializeField, Tooltip("takeNoDamage == trueの時、keyが一致すればダメージが通る.")] public int key = -1;
         [SerializeField, Min(0f)] protected float maxHP = 20f;
         [SerializeField, Min(0f)] protected float hp = 20f; //shotの時は値の数だけ貫通する。
         [SerializeField, Min(0f)] protected float power = 5f;
         [SerializeField] DefeatType defeatType = DefeatType.destroy;
         private bool defeated = false;
-        //[Header("--- Event ---")]
         private System.Action damagedAction = () => { };
         private System.Action defeatedAction = () => { };
         private System.Action recoveredAction = () => { };
-
-        public EntityType Type { get { return this.entityType; } }
+        public EntityType EntityType_ { get { return this.entityType; } }
         public float MaxHP { get { return this.maxHP; } }
         public float HP { get { return this.hp; } }
         public float Power { get { return this.power; } }
         public bool Defeated { get { return this.defeated; } }
 
-        public EntityStatus Set(float? hp, float? power, EntityType? entityType = null, bool? isShot = null, bool? takeNoDamage = null) {
+        public EntityStatus Set(float? hp = null, float? power = null, EntityType? entityType = null, bool? isShot = null, DamageType? damageType = null) {
             this.hp = hp ?? this.HP;
+            this.maxHP = hp ?? MaxHP;
             this.power = power ?? this.power;
             this.entityType = entityType ?? this.entityType;
             this.isShot = isShot ?? this.isShot;
-            this.takeNoDamage = takeNoDamage ?? this.takeNoDamage;
+            this.damageType = damageType ?? this.damageType;
             return this;
-        }
-        public void SetDefeatType(DefeatType defeatType) {
-            this.defeatType = defeatType;
         }
         public EntityStatus SetDamagedAction(System.Action action, bool reset = false) {
             if (reset) this.damagedAction = () => { };
@@ -69,7 +65,6 @@ namespace EntityBehavior.Status {
         protected virtual void OnValidate() {
             ClampHP();
         }
-
         protected virtual void OnTriggerEnter(Collider other) {
             CollisionOther(other);
         }
@@ -83,39 +78,45 @@ namespace EntityBehavior.Status {
             //if (!ReferenceEquals(otherStatus, null)) EntityCollision(otherStatus);
         }
         private void EntityCollision(EntityStatus otherStatus) {
+            if (!this.statusActive || !otherStatus.statusActive) return;
             int id = this.gameObject.GetInstanceID();
             int otherId = otherStatus.gameObject.GetInstanceID();
             if (id < otherId) {
+                //Debug.Log($"entitystatus/collision/{this.gameObject.name} {otherStatus.gameObject.name} frame:{Time.frameCount}");
                 float otherPower = otherStatus.Power;
-                if (this.Power >= 0f) otherStatus.Damage(this.Power);
-                if (otherPower >= 0f) this.Damage(otherPower);
+                if (this.Power >= 0f) otherStatus.Damage(this.Power, this.key);
+                if (otherPower >= 0f) this.Damage(otherPower, otherStatus.key);
             }
         }
-
         public EntityStatus GetEffectionEntity(GameObject obj) {
             if (!obj.CompareTag(commonTag)) return null;
             EntityStatus entityStatus = obj.GetComponent<EntityStatus>();
             if (entityStatus == null) return null;
-            bool differentType = (this.Type != entityStatus.Type);
+            bool differentType = (this.EntityType_ != entityStatus.EntityType_);
             bool bothAreShot = this.isShot && entityStatus.isShot;
             if (differentType && !bothAreShot) return entityStatus;
             return null;
         }
-        
-        public virtual void Damage(float value = 1) {
-            if (value <= 0f) {
-                Debug.LogWarningFormat("Damage value <= 0f", this);
-                if (this.HP <= 0f) Defeat();
+        protected bool EnableDamage(int key) {
+            if (this.damageType == DamageType.takeNoDamage) return false;
+            else if (this.damageType == DamageType.keyOnly) return this.key == key;
+            else return true;
+        }
+        public virtual void Damage(float value, int key = -1) {
+            if (this.isShot) value = 1; //###
+            if (!EnableDamage(key)) {
                 return;
             }
-            if (takeNoDamage) return;
-            this.hp -= !isShot ? value : 1f; //shotの時はダメージが1固定
+            this.hp -= !this.isShot ? value : 1f; //shotの時はダメージが1固定
             this.damagedAction();
             if (this.HP <= 0f) {
                 if (defeated == false) {
                     defeated = true;
                     Defeat();
-                } else Debug.LogWarning("EntityStatus/already defeat.");
+                } else {
+                    if (defeatType == DefeatType.none) return;
+                    //Debug.LogWarning("EntityStatus/already defeat.");
+                }
             }
         }
         public virtual void Recover(float value) {
@@ -130,6 +131,7 @@ namespace EntityBehavior.Status {
             this.defeated = false;
         }
         public virtual void Defeat() {
+            this.power = 0f;
             this.defeatedAction();
             switch (this.defeatType) {
                 case DefeatType.destroy:
@@ -142,13 +144,11 @@ namespace EntityBehavior.Status {
                     break;
             }
         }
-
         private void ClampHP() {
             this.hp = Mathf.Clamp(HP, 0f, MaxHP);
             if (MaxHP <= 0f) Debug.LogWarningFormat("MaxHP <= 0f", this);
         }
     }
-
     public static class EntityStatusComponenter {
         public static EntityStatus ComponentEntityStatus(this GameObject self) {
             return ComponentEntityStatus<EntityStatus>(self);
