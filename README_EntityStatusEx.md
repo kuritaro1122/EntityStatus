@@ -14,7 +14,8 @@ Entity同士が接触した時に自動的に相互にダメージを与える�
 # Requirement
 
 * UnityEngine
-* System
+* System.Collections;
+* System.Collections.Generic;
 
 # Usage
 
