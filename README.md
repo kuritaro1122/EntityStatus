@@ -22,6 +22,8 @@ Entity同士が接触した時に自動的に相互にダメージを与える�
 ※「Entity」タグが追加されていれば、Start()時に自動的にタグが変更されます。\
 ※ RigidBodyのisTriggerはtrueでもfalseでも問題なく動作します。
 
+demo/EntityStatus_hyper.csは[HyperNova](https://kuritaro1122.github.io/HyperNova-Web/)で使用しているステータス管理プログラムです。EntityStatusを継承することで簡単にダメージエフェクトを追加したり、撃破スコアを追加したりできます。
+
 # Contains
 
 ## Inspector
@@ -80,7 +82,7 @@ DefeatType { destroy, nonActive, none }
 
 # Note
 
-注意点などがあれば書く
+このリポジトリを使用する際にはdemoフォルダを削除してください。EntityStatus_hyper.csは単体では動作しません。
 
 # License
 
