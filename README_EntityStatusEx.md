@@ -29,7 +29,7 @@ Entity同士が接触した時に自動的に相互にダメージを与える�
 
 ## Inspector
 
-[image](/img/inspectorView_entityStatusEx.png)
+![image](img/inspectorView_entityStatus_ex.png)
 
 ## Public Variable
 ```
