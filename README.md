@@ -40,7 +40,7 @@ float HP { get; }
 float Power { get; }
 bool Defeated { get; }
 ```
-## public Function
+## Public Function
 ```
 EntityStatus Set(float? hp, float? power, EntityType? entityType, bool? isShot, DamageType? damageType)
 EntityStatus SetDamagedAction(System.Action action, bool reset = false)
@@ -52,7 +52,7 @@ void RecoverFull(bool recoverAction = true)
 void Defeat()
 ```
 
-## protected Variable
+## Protected Variable
 ```
 EntityType entityType
 bool isShot
@@ -61,7 +61,7 @@ float hp
 float power
 ```
 
-## virtual Funtion
+## Virtual Funtion
 ```
 void Awake()
 void OnEnable()
