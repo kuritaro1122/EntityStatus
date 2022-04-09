@@ -6,9 +6,8 @@ Entity同士が接触した時に自動的に相互にダメージを与える�
 
 あらたなオプションとして無敵時間と持続ダメージのオプションが追加されている。EntityStatusを継承しているため、EntityStatusとも互換性がある。
 
-<!--# DEMO
-
--->
+# DEMO
+![gif](img/demo_ex.gif)
 
 
 # Requirement
