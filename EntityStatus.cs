@@ -1,20 +1,22 @@
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 using System;
+using UnityEngine;
+using UnityEngine.Events;
 
 namespace EntityBehavior.Status {
     [AddComponentMenu("EntityBehaviour/EntityStatus")]
     public class EntityStatus : MonoBehaviour {
         public enum EntityType { enemy, friend, obstacle }
         public enum DefeatType { destroy, nonActive, none }
-        public const string commonTag = "Entity";
+        public enum AcceptDamageType { all, none, keyOnly }
+        public const string EntityTag = "Entity";
         [SerializeField] public bool statusActive = true;
         [SerializeField, Min(-1), Tooltip("計算優先度. 値が高いEntityのEntityCollisionを使う")] public int priority = 0;
         [Header("--- Entity Status ---")]
         [SerializeField] protected EntityType entityType = EntityType.enemy;
         [SerializeField] protected bool isShot = false; //shot同士は属性に関わらず衝突しない。
-        [SerializeField, Tooltip("Damageを無効化する.（Keyによるダメージは除く）")] bool takeNoDamage = false;
+        [SerializeField] AcceptDamageType acceptDamageType = AcceptDamageType.all;
         [SerializeField, Min(0f)] protected float maxHP = 20f;
         [SerializeField, Min(0f)] protected float hp = 20f; //shotの時は値の数だけ貫通する。
         [SerializeField, Min(0f)] protected float power = 5f;
@@ -22,44 +24,12 @@ namespace EntityBehavior.Status {
         [Header("--- Defeat ---")]
         [SerializeField] public DefeatType defeatType = DefeatType.destroy;
         [Header("--- Key Option ---")]
-        [SerializeField] public List<int> keys = new List<int>();
+        [SerializeField] public int bitFlag = 0x0000;
         /// <summary>
         /// keyによるのダメージ量と受けた時の処理
         /// </summary>
-        private List<KeyDamageFunc> keyOnDamageFuncs = new List<KeyDamageFunc>();
-        class KeyDamageFunc {
-            private int key;
-            /// <summary>
-            /// getDamage(self, otherPower, damage)
-            /// </summary>
-            private Func<EntityStatus, float, float> getDamage;
-            public KeyDamageFunc(int key, Func<EntityStatus, float, float> getDamage) {
-                this.key = key;
-                this.getDamage = getDamage;
-            }
-            public bool GetDamage(EntityStatus self, EntityStatus other, out float damage) {
-                if (other.keys.Contains(this.key)) {
-                    damage = getDamage(self, other.Power);
-                    return true;
-                }
-                damage = 0f;
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// keyによる追加ダメージの関数を追加
-        /// </summary>
-        /// <param name="key"></param>
-        /// <param name="getDamage"></param>
-        /// <returns></returns>
-        public EntityStatus SetKeyDamageFuncs(int key, Func<EntityStatus, float, float> getDamage) {
-            this.keyOnDamageFuncs.Add(new KeyDamageFunc(key, getDamage));
-            return this;
-        }
-
-        enum AttackType { normal, damage, defeat }
-
+        private List<EffectOnDamageWithFlag> effectOnDamageWithFlag = new List<EffectOnDamageWithFlag>();
+        
         private bool defeated = false;
         /// <summary>EntityStatusの接触によるDamage時に呼ばれる. OnDamageより前に実行される.</summary>
         public event System.Action<GameObject> OnDamageWithOther = t => { };
@@ -78,23 +48,52 @@ namespace EntityBehavior.Status {
         public bool IsShot => this.isShot;
         public bool Defeated => this.defeated;
 
-        public EntityStatus Set(float? hp = null, float? power = null, EntityType? entityType = null, bool? isShot = null, bool takeNoDamage = false) {
-            this.hp = hp ?? this.HP;
-            this.maxHP = hp ?? MaxHP;
-            this.power = power ?? this.power;
-            this.entityType = entityType ?? this.entityType;
-            this.isShot = isShot ?? this.isShot;
-            this.takeNoDamage = takeNoDamage;
+        public EntityStatus Set(float hp, float power, EntityType entityType, bool isShot, AcceptDamageType acceptDamageType) {
+            this.hp = hp;
+            this.power = power;
+            this.entityType = entityType;
+            this.isShot = isShot;
+            this.acceptDamageType = acceptDamageType;
             return this;
         }
+        public EntityStatus Set(float hp, float power) {
+            this.hp = hp;
+            this.power = power;
+            return this;
+        }
+        public EntityStatus Set(EntityType entityType, bool isShot) {
+            this.entityType = entityType;
+            this.isShot = isShot;
+            return this;
+        }
+        public EntityStatus Set(AcceptDamageType acceptDamageType) {
+            this.acceptDamageType = acceptDamageType;
+            return this;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="flag"></param>
+        /// <param name="getDamage">Func(self, other, currentDamage) => damage</param>
+        /// <returns></returns>
+        public EntityStatus AddEffectOnDamageWithFlag(int flag, Func<EntityStatus, EntityStatus, float, float> getDamage) {
+            this.effectOnDamageWithFlag.Add(new EffectOnDamageWithFlag(flag, getDamage));
+            return this;
+        }
+        public EntityStatus ClearEffectOnDamageWithFlag() {
+            this.effectOnDamageWithFlag.Clear();
+            return this;
+        }
+
         protected virtual void Awake() {
             this.hp = MaxHP;
-            this.tag = commonTag;
+            this.tag = EntityTag;
             defeated = false;
         }
         protected virtual void OnEnable() {
             this.hp = maxHP;
-            this.tag = commonTag;
+            this.tag = EntityTag;
             this.defeated = false;
         }
         protected virtual void OnValidate() {
@@ -126,7 +125,7 @@ namespace EntityBehavior.Status {
             } 
         }
         public T GetEffectionEntity<T>(GameObject obj) where T : EntityStatus {
-            if (!obj.CompareTag(commonTag)) return null;
+            if (!obj.CompareTag(EntityTag)) return null;
             T entityStatus = obj.GetComponent<T>();
             if (entityStatus == null) return null;
             bool differentType = (this.EntityType_ != entityStatus.EntityType_);
@@ -148,14 +147,24 @@ namespace EntityBehavior.Status {
             if (this.HP <= 0f) Defeat();
         }
         public virtual void Damage(EntityStatus other) {
+            // ダメージが有効かチェック
+            if (!EnableDamage()) return;
+            // ダメージ無効属性の場合処理を行わない
+            if (this.acceptDamageType == AcceptDamageType.none) return;
             // 基本ダメージ（shotの場合は1とする）
             float damageVal = this.IsShot ? 1 : other.Power;
+            bool keyMatched = false;
             // keyによる追加ダメージ・追加処理
-            foreach (var df in this.keyOnDamageFuncs) {
-                float _damage;
-                bool success = df.GetDamage(this, other, out _damage);
-                if (success) damageVal += _damage;
+            foreach (var df in this.effectOnDamageWithFlag) {
+                float _damage = damageVal;
+                bool success = df.GetDamage(this, other, ref _damage);
+                if (success) {
+                    damageVal = _damage;
+                    keyMatched = true;
+                }
             }
+            // keyOnlyの場合は一致するkeyがあった時のみ行う
+            if (this.acceptDamageType == AcceptDamageType.keyOnly && !keyMatched) return;
             this.hp -= damageVal;
             this.OnDamageWithOther(other.gameObject);
             this.OnDamage();
@@ -193,6 +202,25 @@ namespace EntityBehavior.Status {
         private void ClampHP() {
             this.hp = Mathf.Clamp(HP, 0f, MaxHP);
             if (MaxHP <= 0f) Debug.LogWarningFormat("MaxHP <= 0f", this);
+        }
+
+        class EffectOnDamageWithFlag {
+            private int flag;
+            /// <summary>
+            /// getDamage(self, other, currentDamage)
+            /// </summary>
+            private Func<EntityStatus, EntityStatus, float, float> getDamageEffect;
+            public EffectOnDamageWithFlag(int flag, Func<EntityStatus, EntityStatus, float, float> getDamage) {
+                this.flag = flag;
+                this.getDamageEffect = getDamage;
+            }
+            public bool GetDamage(EntityStatus self, EntityStatus other, ref float damage) {
+                if ((other.bitFlag & flag) == flag) {
+                    damage = getDamageEffect(self, other, damage);
+                    return true;
+                }
+                return false;
+            }
         }
     }
     public static class EntityStatusComponenter {
