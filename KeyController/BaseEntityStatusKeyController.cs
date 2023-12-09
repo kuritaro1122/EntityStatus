@@ -1,10 +1,14 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 using System;
 using UnityEngine.SceneManagement;
+#if UNITY_EDITOR
 using UnityEditor.SceneManagement;
+#endif
 
 namespace EntityBehavior.Status {
     public interface IEntityStatusKeyController {
@@ -71,6 +75,7 @@ namespace EntityBehavior.Status {
         protected static bool FlagIsOn(F bit, F flag) => FlagIsOn((int)(object)bit, (int)(object)flag);
     }
 
+#if UNITY_EDITOR
     //[CustomEditor(typeof(EntityStatusKeyController<F>))]
     public class BaseEntityStatusKeyControllerEditor<T> : Editor where T : class, IEntityStatusKeyController {
         protected bool openSelfFlag = false;
@@ -119,4 +124,5 @@ namespace EntityBehavior.Status {
             }
         }
     }
+#endif
 }

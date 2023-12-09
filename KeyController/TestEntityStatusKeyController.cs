@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 using System;
 
 namespace EntityBehavior.Status {
@@ -72,9 +74,10 @@ namespace EntityBehavior.Status {
         }
     }
 
+#if UNITY_EDITOR
     [CustomEditor(typeof(TestEntityStatusKeyController))]
     class EntityStatusKeyControllerEditor : BaseEntityStatusKeyControllerEditor<TestEntityStatusKeyController> {
     }
+#endif
 
-    
 }
